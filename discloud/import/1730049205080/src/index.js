@@ -34,6 +34,17 @@ const keywordResponses = [
     response: "Hello! How are you doing?",
   }
 ];
+client.once('ready', async () => {
+  console.log(`${client.user.tag} is online!`);
+
+  try {
+    // Clear all global commands
+    await client.application.commands.set([]);
+    console.log("Cleared all global commands.");
+  } catch (error) {
+    console.error("Error clearing global commands:", error);
+  }
+});
 
 client.on('messageCreate', (message) => {
   // Ignore messages from the bot itself

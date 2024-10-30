@@ -14,8 +14,14 @@ module.exports = {
             required: true,
         },
         {
+            name: 'days',
+            description: 'Number of days until the post should be published.',
+            type: ApplicationCommandOptionType.Integer,
+            required: true,
+        },
+        {
             name: 'time',
-            description: 'Time to post the update. Use "YYYY-MM-DD HH:mm:ss AM/PM" or "YYYY-MM-DD HH:mm:ss" (24-hour).',
+            description: 'Time in 24-hour format (HH:mm) for the post.',
             type: ApplicationCommandOptionType.String,
             required: true,
         },
@@ -28,6 +34,7 @@ module.exports = {
     ],
 
     callback: async (client, interaction) => {
+        // Check for Administrator permissions
         if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
             await interaction.reply({
                 content: 'You do not have permission to use this command.',
@@ -36,27 +43,37 @@ module.exports = {
             return;
         }
 
+        // Defer the reply to allow time for processing
+        await interaction.deferReply({ ephemeral: true });
+
+        // Parse inputs
         const imageAttachment = interaction.options.getAttachment('image');
-        const scheduledTime = interaction.options.getString('time');
+        const days = interaction.options.getInteger('days');
+        const time = interaction.options.getString('time');
         const description = interaction.options.getString('description') || 'Here’s the scheduled development update!';
 
-        const date = parseTime(scheduledTime);
-        if (!date || date <= new Date()) {
-            await interaction.reply({
-                content: 'Invalid time or time is in the past. Use "YYYY-MM-DD HH:mm:ss AM/PM" or "YYYY-MM-DD HH:mm:ss" (24-hour format).',
-                ephemeral: true,
+        // Calculate the exact date and time for scheduling
+        const scheduledDate = calculateDate(days, time);
+        
+        if (!scheduledDate) {
+            await interaction.editReply({
+                content: 'Invalid time format. Please use the "HH:mm" format in 24-hour notation.',
+            });
+            return;
+        } else if (scheduledDate <= new Date()) {
+            await interaction.editReply({
+                content: 'Scheduled time is in the past. Please provide a future time.',
             });
             return;
         }
 
         // Confirm scheduling
-        await interaction.reply({
-            content: `Development post scheduled for ${date.toLocaleString()}.`,
-            ephemeral: true,
+        await interaction.editReply({
+            content: `Development post scheduled for ${scheduledDate.toLocaleString()}.`,
         });
 
         // Schedule the post and save details in scheduledPosts
-        const job = schedule.scheduleJob(date, async () => {
+        const job = schedule.scheduleJob(scheduledDate, async () => {
             const channel = interaction.channel;
             const image = new AttachmentBuilder(imageAttachment.url);
 
@@ -65,28 +82,26 @@ module.exports = {
                 files: [image],
             });
 
-            // Remove the job from scheduledPosts once it’s executed
+            // Remove the job from scheduledPosts once executed
             const index = scheduledPosts.findIndex(post => post.job === job);
             if (index !== -1) scheduledPosts.splice(index, 1);
         });
 
         // Add job details to the scheduledPosts array
-        scheduledPosts.push({ date, description, job });
+        scheduledPosts.push({ date: scheduledDate, description, job });
     },
     scheduledPosts, // Export the array for access in other files
 };
 
-// Helper function to parse time
-function parseTime(timeString) {
-    const amPmMatch = timeString.match(/(\d{4}-\d{2}-\d{2}) (\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)?/i);
-    if (amPmMatch) {
-        const [ , date, hour, minute, second, amPm ] = amPmMatch;
-        let hours = parseInt(hour);
-        if (amPm?.toLowerCase() === 'pm' && hours < 12) hours += 12;
-        if (amPm?.toLowerCase() === 'am' && hours === 12) hours = 0;
-        return new Date(`${date} ${hours}:${minute}:${second}`);
-    } else {
-        const date = new Date(timeString);
-        return isNaN(date.getTime()) ? null : date;
-    }
+// Helper function to calculate the scheduled date and time
+function calculateDate(days, timeString) {
+    const timeMatch = timeString.match(/(\d{2}):(\d{2})/);
+    if (!timeMatch) return null;
+
+    const [ , hour, minute ] = timeMatch;
+    const currentDate = new Date();
+    const targetDate = new Date(currentDate.getTime() + days * 24 * 60 * 60 * 1000);
+
+    targetDate.setHours(parseInt(hour), parseInt(minute), 0, 0);
+    return targetDate;
 }
