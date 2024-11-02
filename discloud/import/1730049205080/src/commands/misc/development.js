@@ -3,6 +3,10 @@ const schedule = require('node-schedule');
 
 const scheduledPosts = []; // Array to keep track of scheduled posts
 
+// Define the month and year here
+const SCHEDULED_MONTH = 11; // November (0-based index, so 11 means December)
+const SCHEDULED_YEAR = 2024; // Year
+
 module.exports = {
     name: 'development',
     description: 'Schedule a development post with an image and description at a specified time.',
@@ -14,8 +18,8 @@ module.exports = {
             required: true,
         },
         {
-            name: 'days',
-            description: 'Number of days until the post should be published.',
+            name: 'day',
+            description: 'Day of the month for the post.',
             type: ApplicationCommandOptionType.Integer,
             required: true,
         },
@@ -48,12 +52,12 @@ module.exports = {
 
         // Parse inputs
         const imageAttachment = interaction.options.getAttachment('image');
-        const days = interaction.options.getInteger('days');
+        const day = interaction.options.getInteger('day');
         const time = interaction.options.getString('time');
         const description = interaction.options.getString('description') || 'Here’s the scheduled development update!';
 
         // Calculate the exact date and time for scheduling
-        const scheduledDate = calculateDate(days, time);
+        const scheduledDate = calculateDate(day, time);
         
         if (!scheduledDate) {
             await interaction.editReply({
@@ -94,14 +98,26 @@ module.exports = {
 };
 
 // Helper function to calculate the scheduled date and time
-function calculateDate(days, timeString) {
+function calculateDate(day, timeString) {
     const timeMatch = timeString.match(/(\d{2}):(\d{2})/);
     if (!timeMatch) return null;
 
     const [ , hour, minute ] = timeMatch;
-    const currentDate = new Date();
-    const targetDate = new Date(currentDate.getTime() + days * 24 * 60 * 60 * 1000);
 
-    targetDate.setHours(parseInt(hour), parseInt(minute), 0, 0);
+    // Use the predefined month and year
+    const targetDate = new Date(SCHEDULED_YEAR, SCHEDULED_MONTH - 1, day, parseInt(hour), parseInt(minute), 0, 0);
+
+    // Adjust for daylight saving time if needed
+    if (isDST(targetDate)) {
+        targetDate.setHours(targetDate.getHours() - 1);
+    }
+
     return targetDate;
+}
+
+// Helper to check if daylight saving time is in effect
+function isDST(date) {
+    const jan = new Date(date.getFullYear(), 0, 1).getTimezoneOffset();
+    const jul = new Date(date.getFullYear(), 6, 1).getTimezoneOffset();
+    return Math.max(jan, jul) !== date.getTimezoneOffset();
 }

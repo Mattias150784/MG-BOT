@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 module.exports = {
-    name: 'sneakpeak',
+    name: 'sneakpeek',
     description: 'Retrieve a development image based on a specified keyword.',
     options: [
         {

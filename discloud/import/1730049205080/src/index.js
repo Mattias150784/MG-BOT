@@ -34,17 +34,41 @@ const keywordResponses = [
     response: "Hello! How are you doing?",
   }
 ];
-client.once('ready', async () => {
-  console.log(`${client.user.tag} is online!`);
+// Clear all global commands
+try {
+  const globalCommands = await client.application.commands.fetch();
+  for (const command of globalCommands.values()) {
+      await client.application.commands.delete(command.id);
+  }
+  console.log("Cleared all global commands.");
+} catch (error) {
+  console.error("Error clearing global commands:", error);
+}
 
+// Clear all guild commands
+try {
+  const guildId = '1185733244004610050'; // Replace with your guild ID
+  const guildCommands = await client.guilds.cache.get(guildId)?.commands.fetch();
+  for (const command of guildCommands.values()) {
+      await client.guilds.cache.get(guildId)?.commands.delete(command.id);
+  }
+  console.log("Cleared all guild commands.");
+} catch (error) {
+  console.error("Error clearing guild commands:", error);
+}
+
+// Reload commands afterward
+client.once('ready', async () => {
   try {
-    // Clear all global commands
-    await client.application.commands.set([]);
-    console.log("Cleared all global commands.");
+      console.log("Reloading commands...");
+      await client.application.commands.set(commands);
+      console.log("Commands reloaded successfully.");
   } catch (error) {
-    console.error("Error clearing global commands:", error);
+      console.error("Error reloading commands:", error);
   }
 });
+
+
 
 client.on('messageCreate', (message) => {
   // Ignore messages from the bot itself
